@@ -279,7 +279,7 @@ MIT License - see LICENSE file for details
 ## Author
 
 **YOUR_NAME**
-- GitHub: [@YOUR_USERNAME](https://github.com/YOUR_USERNAME)
+- GitHub: [@ReggieAlbiosA](https://github.com/ReggieAlbiosA)
 
 ## Changelog
 
