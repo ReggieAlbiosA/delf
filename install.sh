@@ -273,7 +273,7 @@ echo ""
 echo "  3) Both locations"
 echo "     └─ Install to both user and system directories"
 echo ""
-read -p "Enter choice [1-3]: " choice
+read -p "Enter choice [1-3]: " choice </dev/tty
 echo ""
 
 log "User selected option: $choice"
