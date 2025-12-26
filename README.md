@@ -27,7 +27,7 @@ Think of it as `rm` with a brain - it asks before destroying, protects what matt
 Install with a single command:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/YOUR_USERNAME/delf/refs/heads/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/ReggieAlbiosA/delf/refs/heads/main/install.sh | bash
 ```
 
 Choose your installation type:
