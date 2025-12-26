@@ -261,44 +261,17 @@ print_step() {
     echo -e "${BOLD}${BLUE}▸ $1${NC}"
 }
 
-# Main installation menu
-print_step "Installation Type"
+# Automatic installation to both locations
+print_step "Installing to User & System Locations"
 echo ""
-echo "  1) User installation (~/.local/bin)"
-echo "     └─ No sudo required, current user only"
-echo ""
-echo "  2) System installation (/usr/local/bin)"
-echo "     └─ Requires sudo, available to all users"
-echo ""
-echo "  3) Both locations"
-echo "     └─ Install to both user and system directories"
-echo ""
-read -p "Enter choice [1-3]: " choice </dev/tty
+log "Installing to both user and system directories"
+
+# Install to user directory
+install_user
 echo ""
 
-log "User selected option: $choice"
-
-case $choice in
-    1)
-        log "Installing to user directory only"
-        install_user
-        ;;
-    2)
-        log "Installing to system directory only"
-        install_system
-        ;;
-    3)
-        log "Installing to both user and system directories"
-        install_user
-        echo ""
-        install_system
-        ;;
-    *)
-        print_status "error" "Invalid choice. Exiting."
-        log "ERROR: Invalid choice ($choice)"
-        exit 1
-        ;;
-esac
+# Install to system directory
+install_system
 
 # Summary
 echo ""
