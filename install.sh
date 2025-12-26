@@ -12,7 +12,7 @@ BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 # GitHub repository details (user will need to update these)
-GITHUB_USER="YOUR_USERNAME"
+GITHUB_USER="ReggieAlbiosA"
 GITHUB_REPO="delf"
 GITHUB_BRANCH="main"
 SCRIPT_URL="https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/refs/heads/${GITHUB_BRANCH}/delf.sh"
