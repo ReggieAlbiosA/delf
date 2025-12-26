@@ -30,10 +30,9 @@ Install with a single command:
 curl -sSL https://raw.githubusercontent.com/ReggieAlbiosA/delf/refs/heads/main/install.sh | bash
 ```
 
-Choose your installation type:
-- **Option 1:** User installation (`~/.local/bin`) - No sudo needed
-- **Option 2:** System-wide (`/usr/local/bin`) - Requires sudo, available to all users
-- **Option 3:** Both locations
+The installer automatically installs to **both locations**:
+- **User:** `~/.local/bin/delf` - Available for your user account
+- **System:** `/usr/local/bin/delf` - Available for all users (requires sudo)
 
 ## Usage
 
@@ -179,19 +178,20 @@ delf *.log
 # When prompted for exclusions: */important-project/*
 ```
 
-## Installation Options
+## Installation Details
 
-### User Installation (Recommended for personal use)
+The installer automatically sets up DELF in both locations for maximum flexibility:
+
+### User Installation
 - **Location:** `~/.local/bin/delf`
-- **Requires:** No sudo
 - **Available to:** Current user only
-- **Pros:** Safe, isolated, no root needed
+- **Benefit:** Works without sudo, safe and isolated
 
-### System-Wide Installation (For shared servers)
+### System-Wide Installation
 - **Location:** `/usr/local/bin/delf`
-- **Requires:** sudo
-- **Available to:** All users
-- **Pros:** Accessible system-wide
+- **Requires:** sudo (installer will prompt)
+- **Available to:** All users on the system
+- **Benefit:** Accessible system-wide for all users
 
 ## Updating
 
