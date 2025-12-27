@@ -17,6 +17,65 @@ GITHUB_REPO="delf"
 GITHUB_BRANCH="main"
 SCRIPT_URL="https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/refs/heads/${GITHUB_BRANCH}/delf.sh"
 
+# Check if fd is installed (for fast parallel searching)
+has_fd() {
+    command -v fd &> /dev/null
+}
+
+# Detect package manager
+detect_package_manager() {
+    if command -v apt &> /dev/null; then
+        echo "apt"
+    elif command -v dnf &> /dev/null; then
+        echo "dnf"
+    elif command -v yum &> /dev/null; then
+        echo "yum"
+    elif command -v pacman &> /dev/null; then
+        echo "pacman"
+    elif command -v brew &> /dev/null; then
+        echo "brew"
+    elif command -v zypper &> /dev/null; then
+        echo "zypper"
+    else
+        echo "unknown"
+    fi
+}
+
+# Install fd based on package manager
+install_fd() {
+    local pkg_manager=$(detect_package_manager)
+
+    print_status "step" "Installing fd (fast file finder)..."
+    log "Installing fd using $pkg_manager"
+
+    case $pkg_manager in
+        apt)
+            # fd is named fd-find on Debian/Ubuntu
+            if sudo apt install -y fd-find 2>/dev/null; then
+                # Create symlink if needed (fd-find installs as 'fdfind')
+                if command -v fdfind &> /dev/null && ! command -v fd &> /dev/null; then
+                    sudo ln -sf $(which fdfind) /usr/local/bin/fd 2>/dev/null || true
+                fi
+                return 0
+            fi
+            ;;
+        dnf|yum)
+            sudo $pkg_manager install -y fd-find 2>/dev/null && return 0
+            ;;
+        pacman)
+            sudo pacman -S --noconfirm fd 2>/dev/null && return 0
+            ;;
+        brew)
+            brew install fd 2>/dev/null && return 0
+            ;;
+        zypper)
+            sudo zypper install -y fd 2>/dev/null && return 0
+            ;;
+    esac
+
+    return 1
+}
+
 # Log file location
 LOG_DIR="$HOME/.delf"
 LOG_FILE="$LOG_DIR/install.log"
@@ -273,6 +332,52 @@ echo ""
 # Install to system directory
 install_system
 
+# Check for fd (optional fast search dependency)
+echo ""
+print_step "Checking Optional Dependencies"
+echo ""
+
+if has_fd; then
+    print_status "ok" "fd is installed (fast parallel search enabled)"
+    log "fd: already installed"
+else
+    print_status "warn" "fd not found (delf will use slower 'find' command)"
+    log "fd: not installed"
+
+    # Ask user if they want to install fd
+    echo ""
+    echo -e "  ${CYAN}fd${NC} enables ${BOLD}5-10x faster${NC} parallel file searching."
+    echo -ne "  Install fd now? [Y/n]: "
+
+    # Handle piped input (curl | bash)
+    if [ -t 0 ]; then
+        read -r install_fd_choice </dev/tty
+    else
+        read -r install_fd_choice
+    fi
+
+    if [[ "$install_fd_choice" =~ ^[Yy]?$ ]]; then
+        if install_fd; then
+            # Check again after installation (handle fdfind -> fd symlink)
+            if has_fd || command -v fdfind &> /dev/null; then
+                print_status "ok" "fd installed successfully"
+                log "fd: installed successfully"
+            else
+                print_status "warn" "fd installation may require restart"
+                log "fd: installation completed, may need restart"
+            fi
+        else
+            print_status "warn" "Could not install fd automatically"
+            print_status "info" "Install manually: ${CYAN}sudo apt install fd-find${NC}"
+            log "fd: auto-install failed"
+        fi
+    else
+        print_status "info" "Skipped fd installation"
+        print_status "info" "Install later: ${CYAN}sudo apt install fd-find${NC}"
+        log "fd: user skipped installation"
+    fi
+fi
+
 # Summary
 echo ""
 echo -e "${BOLD}${CYAN}╔════════════════════════════════════════╗${NC}"
@@ -282,6 +387,18 @@ echo ""
 print_status "info" "Usage: ${BOLD}${GREEN}delf${NC} (run as user)"
 print_status "info" "Usage: ${BOLD}${GREEN}sudo delf${NC} (run with root privileges)"
 echo ""
+
+# Show feature status
+echo -e "${BOLD}Features:${NC}"
+if has_fd || command -v fdfind &> /dev/null; then
+    echo -e "  ${GREEN}✓${NC} Fast parallel search (fd)"
+else
+    echo -e "  ${YELLOW}○${NC} Fast parallel search (install fd for boost)"
+fi
+echo -e "  ${GREEN}✓${NC} Real-time streaming results"
+echo -e "  ${GREEN}✓${NC} Safety protection for system files"
+echo ""
+
 print_status "info" "Installation log: ${CYAN}$LOG_FILE${NC}"
 echo ""
 

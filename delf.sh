@@ -149,6 +149,12 @@ ${BOLD}SAFETY FEATURES:${NC}
     - Dry-run mode for testing
     - Auto-exclusion of critical directories
 
+${BOLD}PERFORMANCE:${NC}
+    - Uses 'fd' for fast parallel searching (if installed)
+    - Falls back to 'find' if fd is not available
+    - Install fd: ${CYAN}sudo apt install fd-find${NC} (Debian/Ubuntu)
+                  ${CYAN}brew install fd${NC} (macOS)
+
 ${BOLD}NOTES:${NC}
     - Patterns are case-sensitive by default (use -i for case-insensitive)
     - Searches recursively from current directory or specified path
@@ -275,6 +281,69 @@ require_critical_confirmation() {
         echo -e "\n${GREEN}Operation cancelled. System is safe.${NC}"
         exit 2
     fi
+}
+
+# Function to check if fd is available (also check fdfind for Debian/Ubuntu)
+has_fd() {
+    command -v fd &> /dev/null || command -v fdfind &> /dev/null
+}
+
+# Get the fd command name (fd or fdfind)
+get_fd_cmd() {
+    if command -v fd &> /dev/null; then
+        echo "fd"
+    elif command -v fdfind &> /dev/null; then
+        echo "fdfind"
+    fi
+}
+
+# Function to build fd command (faster parallel search)
+build_fd_command() {
+    local pattern=$1
+    local search_path=${2:-.}
+    local fd_cmd=$(get_fd_cmd)
+
+    # fd options - include hidden files and don't respect .gitignore
+    fd_cmd+=" --hidden --no-ignore"
+
+    # Add type filter
+    if [[ -n "$TYPE_FILTER" ]]; then
+        fd_cmd+=" -t $TYPE_FILTER"
+    fi
+
+    # Case sensitivity (fd is smart-case by default)
+    if [[ "$IGNORE_CASE" == true ]]; then
+        fd_cmd+=" -i"
+    else
+        fd_cmd+=" -s"
+    fi
+
+    # Add age filter (older than N days)
+    if [[ -n "$OLDER_THAN" ]]; then
+        fd_cmd+=" --changed-before ${OLDER_THAN}days"
+    fi
+
+    # Add size filter
+    if [[ -n "$LARGER_THAN" ]]; then
+        fd_cmd+=" -S +${LARGER_THAN}"
+    fi
+
+    # Add auto-exclude patterns
+    if [[ "$AUTO_EXCLUDE" == true ]]; then
+        for exclude in "${AUTO_EXCLUDE_PATTERNS[@]}"; do
+            fd_cmd+=" -E \"$exclude\""
+        done
+    fi
+
+    # Add pattern (use -g for glob matching like find)
+    if [[ -n "$pattern" ]]; then
+        fd_cmd+=" -g \"$pattern\""
+    fi
+
+    # Add search path
+    fd_cmd+=" \"$search_path\""
+
+    echo "$fd_cmd"
 }
 
 # Function to parse size (e.g., 10M, 500K, 1G)
@@ -513,14 +582,70 @@ if [[ -z "$PATTERN" ]] && [[ "$EMPTY_DIRS" == false ]]; then
     fi
 fi
 
-# Build and execute find command
+# Build and execute search command (fd for speed, find as fallback)
 echo -e "\n${BLUE}${BOLD}Searching...${NC}"
 
-find_cmd=$(build_find_command "$PATTERN" "$SEARCH_PATH")
-mapfile -t matched_files < <(eval "$find_cmd" 2>/dev/null | sort)
+# Use fd for faster parallel search, fall back to find
+# Note: --empty-dirs requires find (fd doesn't support empty directory detection)
+if has_fd && [[ "$EMPTY_DIRS" == false ]]; then
+    search_cmd=$(build_fd_command "$PATTERN" "$SEARCH_PATH")
+    echo -e "${CYAN}(using fd - parallel search)${NC}"
+else
+    search_cmd=$(build_find_command "$PATTERN" "$SEARCH_PATH")
+    if [[ "$EMPTY_DIRS" == false ]] && ! has_fd; then
+        echo -e "${YELLOW}(using find - install 'fd' for faster search)${NC}"
+    fi
+fi
+
+# Stream results in real-time (interpreter mode)
+# Display each result instantly as it's found
+echo -e "\n${BOLD}Matches:${NC}"
+matched_files=()
+display_count=0
+critical_count=0
+warning_count=0
+safe_count=0
+
+while IFS= read -r file; do
+    # Skip empty lines
+    [[ -z "$file" ]] && continue
+
+    # Add to array for later processing
+    matched_files+=("$file")
+
+    # Categorize for safety stats
+    if is_critical_system_file "$file"; then
+        ((critical_count++))
+        icon="🚨"
+        color="${RED}${BOLD}"
+    elif is_warning_system_file "$file"; then
+        ((warning_count++))
+        icon="⚠️ "
+        color="${YELLOW}"
+    else
+        ((safe_count++))
+        icon="📄"
+        color="${RED}"
+    fi
+
+    # Display instantly (up to MAX_DISPLAY)
+    if [[ $display_count -lt $MAX_DISPLAY ]]; then
+        if [[ -d "$file" ]]; then
+            echo -e "${color}  $icon $file/${NC}"
+        else
+            echo -e "${color}  $icon $file${NC}"
+        fi
+        ((display_count++))
+    elif [[ $display_count -eq $MAX_DISPLAY ]]; then
+        echo -e "${YELLOW}  ... (more results streaming, display limit reached)${NC}"
+        ((display_count++))
+    fi
+done < <(eval "$search_cmd" 2>/dev/null)
+
+total_matches=${#matched_files[@]}
 
 # Check if any matches found
-if [[ ${#matched_files[@]} -eq 0 ]]; then
+if [[ $total_matches -eq 0 ]]; then
     echo -e "${YELLOW}${BOLD}No matches found${NC} for pattern: ${CYAN}$PATTERN${NC}"
     if [[ "$AUTO_EXCLUDE" == true ]]; then
         echo -e "${YELLOW}Note:${NC} Auto-exclusions are enabled. Use ${CYAN}-a${NC} flag to disable."
@@ -528,12 +653,9 @@ if [[ ${#matched_files[@]} -eq 0 ]]; then
     exit 1
 fi
 
-# Display matched files
-total_matches=${#matched_files[@]}
-echo -e "\n${BOLD}Found ${YELLOW}$total_matches${NC}${BOLD} matches:${NC}"
-
-# Categorize files by safety level
-IFS='|' read -r critical_count warning_count safe_count <<< "$(categorize_files matched_files)"
+# Show summary after streaming completes
+echo -e "\n${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${BOLD}Found ${YELLOW}$total_matches${NC}${BOLD} total matches${NC}"
 
 # Show safety summary
 if [[ $critical_count -gt 0 ]]; then
@@ -547,37 +669,7 @@ if [[ $safe_count -gt 0 ]]; then
 fi
 
 if [[ $total_matches -gt $MAX_DISPLAY ]]; then
-    echo -e "${YELLOW}(Showing first $MAX_DISPLAY out of $total_matches)${NC}\n"
-    display_count=$MAX_DISPLAY
-else
-    echo ""
-    display_count=$total_matches
-fi
-
-for ((i=0; i<display_count; i++)); do
-    file="${matched_files[$i]}"
-    
-    # Color-code by safety level
-    if is_critical_system_file "$file"; then
-        icon="🚨"
-        color="${RED}${BOLD}"
-    elif is_warning_system_file "$file"; then
-        icon="⚠️ "
-        color="${YELLOW}"
-    else
-        icon="📄"
-        color="${RED}"
-    fi
-    
-    if [[ -d "$file" ]]; then
-        echo -e "${color}  $icon $file/${NC}"
-    else
-        echo -e "${color}  $icon $file${NC}"
-    fi
-done
-
-if [[ $total_matches -gt $MAX_DISPLAY ]]; then
-    echo -e "\n${YELLOW}... and $((total_matches - MAX_DISPLAY)) more${NC}"
+    echo -e "${YELLOW}(Displayed first $MAX_DISPLAY of $total_matches)${NC}"
 fi
 
 # Check if user has permission to delete critical files
