@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 GITHUB_USER="ReggieAlbiosA"
 GITHUB_REPO="delf"
 GITHUB_BRANCH="main"
-SCRIPT_URL="https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/refs/heads/${GITHUB_BRANCH}/delf.sh"
+SCRIPT_URL="https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/refs/heads/${GITHUB_BRANCH}/ubuntu/delf.sh"
 
 # Check if fd is installed (for fast parallel searching)
 has_fd() {

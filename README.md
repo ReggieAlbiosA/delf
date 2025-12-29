@@ -24,15 +24,29 @@ Think of it as `rm` with a brain - it asks before destroying, protects what matt
 
 ### Installation
 
+#### Ubuntu/Linux
+
 Install with a single command:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/ReggieAlbiosA/delf/refs/heads/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/ReggieAlbiosA/delf/refs/heads/main/ubuntu/install.sh | bash
 ```
 
 The installer automatically installs to **both locations**:
 - **User:** `~/.local/bin/delf` - Available for your user account
 - **System:** `/usr/local/bin/delf` - Available for all users (requires sudo)
+
+#### Windows (PowerShell)
+
+Run in PowerShell (as Administrator for system-wide install):
+
+```powershell
+irm https://raw.githubusercontent.com/ReggieAlbiosA/delf/refs/heads/main/win/install.ps1 | iex
+```
+
+The installer automatically installs to:
+- **User:** `%USERPROFILE%\.local\bin\delf.ps1` - Available for your user account
+- **System:** `C:\Program Files\delf\delf.ps1` - Available for all users (requires Admin)
 
 ## Usage
 
@@ -182,32 +196,53 @@ delf *.log
 
 The installer automatically sets up DELF in both locations for maximum flexibility:
 
-### User Installation
+### Ubuntu/Linux
+
+#### User Installation
 - **Location:** `~/.local/bin/delf`
 - **Available to:** Current user only
 - **Benefit:** Works without sudo, safe and isolated
 
-### System-Wide Installation
+#### System-Wide Installation
 - **Location:** `/usr/local/bin/delf`
 - **Requires:** sudo (installer will prompt)
 - **Available to:** All users on the system
-- **Benefit:** Accessible system-wide for all users
+
+### Windows
+
+#### User Installation
+- **Location:** `%USERPROFILE%\.local\bin\delf.ps1`
+- **Available to:** Current user only
+- **Benefit:** Works without Administrator privileges
+
+#### System-Wide Installation
+- **Location:** `C:\Program Files\delf\delf.ps1`
+- **Requires:** Administrator privileges
+- **Available to:** All users on the system
 
 ## Updating
 
 Re-run the installation command to update:
 
+### Ubuntu/Linux
 ```bash
-curl -sSL https://raw.githubusercontent.com/YOUR_USERNAME/delf/refs/heads/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/ReggieAlbiosA/delf/refs/heads/main/ubuntu/install.sh | bash
+```
+
+### Windows (PowerShell)
+```powershell
+irm https://raw.githubusercontent.com/ReggieAlbiosA/delf/refs/heads/main/win/install.ps1 | iex
 ```
 
 The installer will detect existing installation and upgrade automatically.
 
 ## Manual Installation
 
+### Ubuntu/Linux
+
 ```bash
 # Download
-curl -sSL https://raw.githubusercontent.com/YOUR_USERNAME/delf/refs/heads/main/delf.sh -o delf
+curl -sSL https://raw.githubusercontent.com/ReggieAlbiosA/delf/refs/heads/main/ubuntu/delf.sh -o delf
 
 # Make executable
 chmod +x delf
@@ -220,7 +255,31 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
+### Windows (PowerShell)
+
+```powershell
+# Create directory
+New-Item -ItemType Directory -Path "$env:USERPROFILE\.local\bin" -Force
+
+# Download
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/ReggieAlbiosA/delf/refs/heads/main/win/delf.ps1" -OutFile "$env:USERPROFILE\.local\bin\delf.ps1"
+
+# Add to PATH
+$path = [Environment]::GetEnvironmentVariable("Path", "User")
+[Environment]::SetEnvironmentVariable("Path", "$env:USERPROFILE\.local\bin;$path", "User")
+
+# Add function to PowerShell profile
+Add-Content $PROFILE @'
+
+function delf {
+    & "$env:USERPROFILE\.local\bin\delf.ps1" @args
+}
+'@
+```
+
 ## Uninstallation
+
+### Ubuntu/Linux
 
 ```bash
 # User installation
@@ -233,17 +292,60 @@ sudo rm /usr/local/bin/delf
 rm -rf ~/.delf
 ```
 
+### Windows (PowerShell)
+
+```powershell
+# User installation
+Remove-Item "$env:USERPROFILE\.local\bin\delf.ps1" -Force
+
+# System-wide installation (as Administrator)
+Remove-Item "C:\Program Files\delf" -Recurse -Force
+
+# Remove logs
+Remove-Item "$env:USERPROFILE\.delf" -Recurse -Force
+
+# Optionally remove the delf function from your profile
+# Edit $PROFILE and remove the delf function block
+```
+
 ## Troubleshooting
 
-### Command not found
+### Ubuntu/Linux
+
+#### Command not found
 ```bash
 source ~/.bashrc  # Reload shell config
 # or restart terminal
 ```
 
-### Permission denied
+#### Permission denied
 ```bash
 chmod +x ~/.local/bin/delf
+```
+
+### Windows
+
+#### Command not found
+```powershell
+# Reload PowerShell profile
+. $PROFILE
+# or restart PowerShell
+```
+
+#### Execution policy error
+```powershell
+# Run as Administrator
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+#### Slow search
+Install `fd` for parallel searching:
+```powershell
+winget install sharkdp.fd
+# or
+choco install fd
+# or
+scoop install fd
 ```
 
 ## Use with Sudo
@@ -258,10 +360,18 @@ sudo delf *.log  # Runs with root permissions
 
 ## Installation Logs
 
+### Ubuntu/Linux
 All installations are logged to: `~/.delf/install.log`
 
 ```bash
 cat ~/.delf/install.log  # View installation history
+```
+
+### Windows
+All installations are logged to: `%USERPROFILE%\.delf\install.log`
+
+```powershell
+Get-Content "$env:USERPROFILE\.delf\install.log"  # View installation history
 ```
 
 ## Contributing
