@@ -1,0 +1,42 @@
+name: Build DELF
+
+on:
+  push:
+    branches: ['**']
+  release:
+    types: [created]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Download dependencies
+        run: |
+          cd go
+          go mod tidy
+
+      - name: Build Windows binary
+        run: |
+          cd go
+          go build -o delf.exe -ldflags="-s -w"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: delf-windows
+          path: go/delf.exe
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: go/delf.exe
