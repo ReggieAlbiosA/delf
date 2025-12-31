@@ -2,10 +2,9 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
-	"syscall"
-	"unsafe"
 )
 
 // FileCategory represents the safety category of a file
@@ -116,30 +115,10 @@ func isAutoExcluded(filePath string) bool {
 
 // isAdmin checks if the current process is running as Administrator
 func isAdmin() bool {
-	// Use Windows API to check admin status
-	var sid *syscall.SID
-
-	// Well-known SID for Administrators group
-	err := syscall.AllocateAndInitializeSid(
-		&syscall.SECURITY_NT_AUTHORITY,
-		2,
-		syscall.SECURITY_BUILTIN_DOMAIN_RID,
-		syscall.DOMAIN_ALIAS_RID_ADMINS,
-		0, 0, 0, 0, 0, 0,
-		&sid)
-	if err != nil {
-		return false
-	}
-	defer syscall.FreeSid(sid)
-
-	// Check if the current process token is a member of the Administrators group
-	token := syscall.Token(0)
-	member, err := token.IsMember(sid)
-	if err != nil {
-		return false
-	}
-
-	return member
+	// Use 'net session' command - it fails if not running as admin
+	cmd := exec.Command("net", "session")
+	err := cmd.Run()
+	return err == nil
 }
 
 // isEmptyDirectory checks if a directory is empty
@@ -188,35 +167,3 @@ func matchesExclusionPattern(filePath string, patterns []string) bool {
 	return false
 }
 
-// getDiskFreeSpace returns the free space on the drive containing the path
-func getDiskFreeSpace(path string) (uint64, error) {
-	kernel32 := syscall.NewLazyDLL("kernel32.dll")
-	proc := kernel32.NewProc("GetDiskFreeSpaceExW")
-
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return 0, err
-	}
-
-	// Get the root path (e.g., "C:\")
-	root := filepath.VolumeName(absPath) + "\\"
-
-	var freeBytesAvailable, totalBytes, totalFreeBytes uint64
-
-	rootPtr, err := syscall.UTF16PtrFromString(root)
-	if err != nil {
-		return 0, err
-	}
-
-	ret, _, err := proc.Call(
-		uintptr(unsafe.Pointer(rootPtr)),
-		uintptr(unsafe.Pointer(&freeBytesAvailable)),
-		uintptr(unsafe.Pointer(&totalBytes)),
-		uintptr(unsafe.Pointer(&totalFreeBytes)),
-	)
-	if ret == 0 {
-		return 0, err
-	}
-
-	return freeBytesAvailable, nil
-}
